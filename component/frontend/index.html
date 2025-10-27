@@ -1,0 +1,106 @@
+<!-- component/frontend/index.html -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Browser Speech Component</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial; margin:8px; color:#111; }
+    #controls { display:flex; gap:8px; align-items:center; }
+    button { padding:8px 10px; font-size:14px; cursor:pointer; }
+    #status { margin-top:8px; color:#555; }
+    #transcript { margin-top:8px; font-size:16px; min-height:24px; white-space:pre-wrap; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button id="startBtn">Record (Browser)</button>
+    <button id="stopBtn" disabled>Stop</button>
+    <button id="sendBtn" disabled>Send to App</button>
+  </div>
+  <div id="status">Status: idle</div>
+  <div id="transcript" aria-live="polite"></div>
+
+  <script>
+    // Browser feature check
+    const compatible = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+    const status = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const transcriptDiv = document.getElementById('transcript');
+
+    if (!compatible) {
+      status.innerText = "Status: Web Speech API not supported in this browser. Use Chrome/Edge on HTTPS.";
+      startBtn.disabled = true;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = compatible ? new SpeechRecognition() : null;
+    if (recognition) {
+      recognition.lang = 'ja-JP';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+    }
+
+    let fullTranscript = "";
+
+    startBtn.onclick = () => {
+      if (!recognition) return;
+      fullTranscript = "";
+      transcriptDiv.innerText = "";
+      status.innerText = "Status: listening... (speak now)";
+      recognition.start();
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+      sendBtn.disabled = true;
+    };
+
+    stopBtn.onclick = () => {
+      if (!recognition) return;
+      recognition.stop();
+      status.innerText = "Status: stopped — processing...";
+      stopBtn.disabled = true;
+    };
+
+    recognition && recognition.addEventListener('result', (e) => {
+      let interim = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const transcriptPiece = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          fullTranscript += transcriptPiece;
+        } else {
+          interim += transcriptPiece;
+        }
+      }
+      transcriptDiv.innerText = fullTranscript + interim;
+    });
+
+    recognition && recognition.addEventListener('end', () => {
+      status.innerText = "Status: ready (recording ended)";
+      sendBtn.disabled = false;
+      startBtn.disabled = false;
+    });
+
+    recognition && recognition.addEventListener('error', (ev) => {
+      status.innerText = "Status: error: " + ev.error;
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+      sendBtn.disabled = false;
+    });
+
+    // send transcript to Streamlit Python
+    sendBtn.onclick = () => {
+      const valueToSend = (transcriptDiv.innerText || "").trim();
+      // Post message expected by declare_component (streamlit:setComponentValue)
+      window.parent.postMessage({isStreamlitMessage: true, type: 'streamlit:setComponentValue', value: valueToSend}, '*');
+    };
+
+    // allow Enter to send
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !sendBtn.disabled) sendBtn.click();
+    });
+  </script>
+</body>
+</html>
