@@ -131,7 +131,7 @@ async def _generate_tts_async(text:str,voice="ja-JP-NanamiNeural"):
         tts=edge_tts.Communicate(text,voice=voice)
         await tts.save(str(path))
     except Exception as e:
-        st.warning(f"⚠️ Edge-TTS failed, falling back to gTTS: {e}")
+        st.info("💬 Using gTTS (Google voice).")
         gTTS(text=text, lang="ja").save(str(path))
     return str(path)
 
