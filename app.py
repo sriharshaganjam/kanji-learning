@@ -1,11 +1,13 @@
-# app.py — Kanji Tutor with Mistral + Edge-TTS + Whisper + pykakasi
+# app.py — Kanji Tutor with Mistral + Whisper + Edge/gTTS fallback + pykakasi
+
 import os, re, json, random, asyncio, tempfile, requests, time
 from pathlib import Path
 import streamlit as st
 from dotenv import load_dotenv
 import jaconv
-import edge_tts
 from pykakasi import kakasi
+from gtts import gTTS
+import edge_tts
 
 # ==================================
 # --- Load environment variables
@@ -115,16 +117,22 @@ def generate_sentence_mistral(kanji):
     return None
 
 # ==================================
-# --- Edge TTS with Cache
+# --- TTS (Edge + gTTS fallback)
 # ==================================
-CACHE_DIR=Path("cache/tts"); CACHE_DIR.mkdir(parents=True,exist_ok=True)
+CACHE_DIR=Path("cache/tts")
+CACHE_DIR.mkdir(parents=True,exist_ok=True)
 
 async def _generate_tts_async(text:str,voice="ja-JP-NanamiNeural"):
     safe=re.sub(r"\W+","_",text)[:40]
     path=CACHE_DIR/f"{safe}.mp3"
-    if path.exists(): return str(path)
-    tts=edge_tts.Communicate(text,voice=voice)
-    await tts.save(str(path))
+    if path.exists():
+        return str(path)
+    try:
+        tts=edge_tts.Communicate(text,voice=voice)
+        await tts.save(str(path))
+    except Exception as e:
+        st.warning(f"⚠️ Edge-TTS failed, falling back to gTTS: {e}")
+        gTTS(text=text, lang="ja").save(str(path))
     return str(path)
 
 def generate_tts_cached(text:str,voice="ja-JP-NanamiNeural"):
@@ -192,8 +200,8 @@ if mode=="Reading exercise":
         st.markdown(f"<div style='font-size:28px'>{gen['kanji']}</div>",unsafe_allow_html=True)
         st.caption(f"Hiragana version: {gen['kana']}")
 
-        if st.button("🔊 Play sentence (Edge TTS)"):
-            with st.spinner("Generating voice..."):
+        if st.button("🔊 Play sentence (Edge/gTTS)"):
+            with st.spinner("Generating natural voice..."):
                 audio_path=generate_tts_cached(gen["kana"])
                 st.audio(audio_path,format="audio/mp3")
 
