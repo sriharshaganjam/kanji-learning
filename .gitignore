@@ -1,0 +1,36 @@
+# Python + Streamlit + secrets
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Streamlit caches
+.streamlit/
+.cache/
+cache/
+tmp/
+
+# Secrets
+.env
+.env.*
+*.toml
+*.key
+*.pem
+
+# macOS junk
+.DS_Store
+
+# VSCode / PyCharm configs
+.vscode/
+.idea/
+
+# Other build outputs
+*.egg-info/
+dist/
+build/
